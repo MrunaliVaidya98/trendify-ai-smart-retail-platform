@@ -1,0 +1,8 @@
+node_modules
+.angular
+dist
+.npm-cache
+playwright-report
+.playwright-browsers
+test-results
+coverage

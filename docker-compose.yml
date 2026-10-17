@@ -1,0 +1,48 @@
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:2.6.1
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data
+    user: root
+    volumes: ["dynamodb-data:/home/dynamodblocal/data"]
+    ports: ["8000:8000"]
+
+  ml-service:
+    build:
+      context: .
+      dockerfile: ml-service/Dockerfile
+    environment:
+      MODEL_PATH: /app/artifacts/demand_model.joblib
+      DATASET_PATH: /app/data/sales.csv
+    volumes:
+      - ml-artifacts:/app/artifacts
+      - ./datasets/generated:/app/data
+    ports: ["8001:8001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      ML_SERVICE_URL: http://ml-service:8001
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me-123456789}
+      CORS_ORIGINS: http://localhost:4200,http://127.0.0.1:4200,http://host.docker.internal:4200
+    depends_on:
+      dynamodb-local: {condition: service_started}
+      ml-service: {condition: service_healthy}
+    ports: ["8080:8080"]
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports: ["4200:80"]
+
+volumes:
+  dynamodb-data:
+  ml-artifacts:
