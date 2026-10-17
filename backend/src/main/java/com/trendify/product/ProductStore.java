@@ -23,6 +23,12 @@ public class ProductStore {
     create(DEFAULT_STORE,new ProductInput("SKU-COFFEE-01","Northstar Cold Brew","Beverages","Northstar Roasters",new BigDecimal("5.99"),new BigDecimal("2.10"),84,30,5));
     create(DEFAULT_STORE,new ProductInput("SKU-TOTE-01","Canvas Market Tote","Accessories","Common Goods",new BigDecimal("18.00"),new BigDecimal("6.25"),19,24,12));
     create(DEFAULT_STORE,new ProductInput("SKU-CANDLE-01","Cedar & Sage Candle","Home","Field & Flame",new BigDecimal("28.00"),new BigDecimal("9.80"),43,15,9));
+    String[] categories={"Beverages","Accessories","Home","Grocery","Health","Electronics","Beauty","Outdoors","Office","Pet Care"};
+    String[] suppliers={"Northstar Supply","Common Goods","Pacific Wholesale","Evergreen Brands","Summit Distribution"};
+    for(int number=1;number<=100;number++){
+      String category=categories[(number-1)%categories.length];BigDecimal price=BigDecimal.valueOf(499L+(number%37)*135L,2);BigDecimal cost=price.multiply(new BigDecimal("0.45")).setScale(2,java.math.RoundingMode.HALF_UP);
+      create(DEFAULT_STORE,new ProductInput("DEMO-%04d".formatted(number),"Demo %s Product %03d".formatted(category,number),category,suppliers[(number-1)%suppliers.length],price,cost,12+(number*7)%180,8+number%20,2+number%14));
+    }
   }
   Product create(ProductInput input){return create(DEFAULT_STORE,input);}
   public Product create(String storeId,ProductInput input){
@@ -40,7 +46,7 @@ public class ProductStore {
     Map<String,AttributeValue> start=decodeToken(token);
     Map<String,AttributeValue> values=new HashMap<>();values.put(":type",builder().s("PRODUCT").build());values.put(":store",builder().s(storeId).build());String filter="entityType = :type AND storeId = :store";if(category!=null&&!category.isBlank()){filter+=" AND category = :category";values.put(":category",builder().s(category).build());}
     List<Product> matches=new ArrayList<>();Map<String,AttributeValue> cursor=start;
-    do{var req=ScanRequest.builder().tableName(table).filterExpression(filter).expressionAttributeValues(values).limit(limit);if(cursor!=null)req.exclusiveStartKey(cursor);var out=db.scan(req.build());matches.addAll(out.items().stream().map(this::from).limit(limit-matches.size()).toList());cursor=out.lastEvaluatedKey().isEmpty()?null:out.lastEvaluatedKey();}while(matches.size()<limit&&cursor!=null);
+    do{var req=ScanRequest.builder().tableName(table).filterExpression(filter).expressionAttributeValues(values).limit(Math.max(1,limit-matches.size()));if(cursor!=null)req.exclusiveStartKey(cursor);var out=db.scan(req.build());matches.addAll(out.items().stream().map(this::from).toList());cursor=out.lastEvaluatedKey().isEmpty()?null:out.lastEvaluatedKey();}while(matches.size()<limit&&cursor!=null);
     return new Page(matches,cursor==null?null:encodeToken(cursor));
   }
   private String encodeToken(Map<String,AttributeValue> key){String raw=key.get("PK").s()+"\n"+key.get("SK").s();return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));}
