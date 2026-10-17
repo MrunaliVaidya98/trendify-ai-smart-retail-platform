@@ -1,4 +1,18 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: trendify
+      POSTGRES_USER: trendify
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trendify-local}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trendify -d trendify"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   dynamodb-local:
     image: amazon/dynamodb-local:2.6.1
     command: -jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data
@@ -33,16 +47,44 @@ services:
       ML_SERVICE_URL: http://ml-service:8001
       JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me-123456789}
       CORS_ORIGINS: http://localhost:4200,http://127.0.0.1:4200,http://host.docker.internal:4200
+      DATABASE_URL: jdbc:postgresql://postgres:5432/trendify
+      DATABASE_USERNAME: trendify
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-trendify-local}
+      SIMULATOR_API_KEY: ${SIMULATOR_API_KEY:-local-simulator-key}
     depends_on:
+      postgres: {condition: service_healthy}
       dynamodb-local: {condition: service_started}
       ml-service: {condition: service_healthy}
     ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
 
   frontend:
     build: ./frontend
     depends_on: [backend]
     ports: ["4200:80"]
 
+  traffic-generator:
+    profiles: ["simulator"]
+    build:
+      context: .
+      dockerfile: traffic-generator/Dockerfile
+    environment:
+      TRENDIFY_API_URL: http://backend:8080
+      TRENDIFY_EMAIL: manager@trendify.dev
+      TRENDIFY_PASSWORD: ${TRENDIFY_PASSWORD:-Trendify123!}
+      SIMULATOR_API_KEY: ${SIMULATOR_API_KEY:-local-simulator-key}
+      EVENTS_PER_SECOND: ${EVENTS_PER_SECOND:-1}
+      SIMULATOR_SEED: ${SIMULATOR_SEED:-2026}
+      TRAFFIC_PATTERN: ${TRAFFIC_PATTERN:-normal}
+    depends_on:
+      backend: {condition: service_healthy}
+    restart: unless-stopped
+
 volumes:
+  postgres-data:
   dynamodb-data:
   ml-artifacts:

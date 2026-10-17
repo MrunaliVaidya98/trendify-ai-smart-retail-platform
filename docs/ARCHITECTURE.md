@@ -2,7 +2,7 @@
 
 ## System context
 
-Trendify supports a retail operator who needs one view of sales indicators, catalog and stock, ordering, demand forecasts, pricing decisions, and replenishment signals. The locally runnable system has four process boundaries: React, Spring Boot, FastAPI, and DynamoDB Local. The AWS module adds a scheduled Lambda, managed DynamoDB, S3, EventBridge, CloudWatch, and IAM, but has not been provisioned in a live account.
+Trendify supports a retail operator who needs one view of sales indicators, catalog and stock, ordering, demand forecasts, pricing decisions, and replenishment signals. The locally runnable system includes React, Spring Boot, FastAPI, PostgreSQL, DynamoDB Local, and an opt-in Python traffic generator. The AWS module adds a scheduled Lambda, managed DynamoDB, S3, EventBridge, CloudWatch, and IAM, but has not been provisioned in a live account.
 
 ```mermaid
 flowchart LR
@@ -18,7 +18,9 @@ flowchart LR
   SPA[React 19 SPA<br/>Vite / Nginx]
   API[Spring Boot 3.5<br/>Java 21]
   DB[(DynamoDB / DynamoDB Local)]
+  PG[(PostgreSQL 17<br/>traffic events)]
   ML[FastAPI<br/>scikit-learn]
+  Sim[Python traffic generator<br/>opt-in Compose profile]
   Schedule[EventBridge schedule]
   Lambda[Python 3.12 Lambda]
   Bucket[(S3 model metadata)]
@@ -27,7 +29,9 @@ flowchart LR
   Browser -->|HTML, CSS, JS| SPA
   SPA -->|/api, JWT| API
   API -->|AWS SDK v2| DB
+  API -->|JDBC / Flyway| PG
   API -->|HTTP forecast calls| ML
+  Sim -->|JWT + simulator key / REST| API
   Schedule -->|daily event| Lambda
   Lambda -->|POST /train| ML
   Lambda -->|run claim/result| DB
@@ -35,7 +39,7 @@ flowchart LR
   Lambda -->|structured logs/errors| Ops
 ```
 
-Local Nginx serves the SPA and proxies `/api` to Spring Boot. Docker Compose supplies fake local AWS credentials only to satisfy the SDK; DynamoDB calls stay on the Compose network. The browser never contacts DynamoDB or the ML service directly for protected retail data.
+Local Nginx serves the SPA, proxies `/api` to Spring Boot, and proxies `/ml` to FastAPI. Docker Compose supplies fake local AWS credentials only to satisfy the SDK; DynamoDB calls stay on the Compose network. The browser never contacts a database directly.
 
 ## Spring Boot system of record
 
@@ -50,6 +54,7 @@ The Java API is a modular monolith. This keeps product, inventory, order, author
 | `order` | Creates immutable order snapshots and atomically decrements every line |
 | `analytics` | Validates dashboard filters and returns deterministic scoped KPI data |
 | `recommendation` | Pricing/reorder calculations plus durable decision/audit persistence |
+| `traffic` | Authenticated, idempotent event ingestion and bounded PostgreSQL aggregation |
 | `common` | Safe exception mapping and correlation-ID propagation |
 | `config` | DynamoDB client construction and local endpoint override |
 
@@ -139,7 +144,7 @@ The frontend uses React function components, hooks, React Router, and a typed fe
 - `Dashboard` coordinates filtered dashboard and product reads, models loading/error/success/empty states, and creates a one-line order with the displayed product version.
 - A successful order refreshes products so the incremented version and decremented stock replace stale client state.
 
-The currently interactive routes are login and the operations overview. Sidebar entries for products, inventory, forecasts, and pricing are visual navigation placeholders; those administrative workflows remain API-driven and are called out as a limitation.
+Interactive routes cover login, overview, product CRUD, inventory adjustment, order creation/lookup, forecasting, pricing approval, and persisted live traffic. Customer, notification, settings, administration, richer order lifecycle, and simulator-control routes remain unimplemented.
 
 ## Python ML service
 
@@ -195,6 +200,8 @@ flowchart LR
   DC --> J[Spring :8080]
   DC --> P[FastAPI :8001]
   DC --> DL[DynamoDB Local :8000]
+  DC --> PG[PostgreSQL :5432]
+  DC -. explicit simulator profile .-> TG[Traffic generator]
 ```
 
 Named volumes preserve DynamoDB data and model artifacts. No request leaves the machine for AWS.

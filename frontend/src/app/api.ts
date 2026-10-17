@@ -12,5 +12,6 @@ export async function api<T>(path:string,init:RequestInit={}):Promise<T>{
     localStorage.removeItem('token');localStorage.removeItem('storeId');window.dispatchEvent(new Event('trendify:unauthorized'));
   }
   if(!response.ok)throw new ApiError(response.status,`Request failed (${response.status})`);
+  if(response.status===204)return undefined as T;
   return response.json() as Promise<T>;
 }

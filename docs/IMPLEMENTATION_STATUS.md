@@ -14,7 +14,7 @@ This document distinguishes executable implementation from roadmap intent. `docs
 
 ## Baseline architecture
 
-The current application is a React SPA backed by a Java 21/Spring Boot modular monolith, DynamoDB/DynamoDB Local, and a separate Python/FastAPI forecasting service. A Python Lambda and Terraform describe a scheduled AWS forecasting slice. PostgreSQL, Redis, Kafka, MLflow, XGBoost, RAG/OpenAI, OpenTelemetry, Prometheus, Grafana, ECS, RDS, and ElastiCache are not currently implemented.
+The current application is a React SPA backed by a Java 21/Spring Boot modular monolith, DynamoDB/DynamoDB Local, PostgreSQL 17 for traffic events, a Python/FastAPI forecasting service, and an opt-in Python simulator. A Python Lambda and Terraform describe a scheduled AWS forecasting slice. Redis, Kafka, MLflow, XGBoost, RAG/OpenAI, OpenTelemetry, Prometheus, Grafana, ECS, RDS, and ElastiCache are not implemented.
 
 ## Capability matrix
 
@@ -46,16 +46,18 @@ The current application is a React SPA backed by a Java 21/Spring Boot modular m
 | AWS | Idempotent scheduled Lambda logic | IMPLEMENTED_AND_VERIFIED | `lambda/handler.py`; mocked pytest | Real AWS behavior remains unverified |
 | AWS | Terraform scheduled forecasting resources | IMPLEMENTED_AND_VERIFIED | Terraform fmt/init/validate passed 2026-10-17 | Static validation only |
 | AWS | Live deployment | BLOCKED | `CLOUD-001` | Requires explicit authorization and disposable AWS sandbox |
-| Data | PostgreSQL/Flyway transactional source of truth | NOT_IMPLEMENTED | No dependency, schema, or service | Must define migration and ownership away from conflicting DynamoDB records |
+| Data | PostgreSQL/Flyway traffic-event source of truth | IMPLEMENTED_AND_VERIFIED | `V1__traffic_events.sql`; PostgreSQL 17 Compose runtime; H2/Flyway Spring tests | Commerce transactions intentionally remain authoritative in DynamoDB |
 | Data | Redis cache/rate limiting | NOT_IMPLEMENTED | No dependency or service | Add only with outage/invalidation tests |
 | Events | Kafka event flows | NOT_IMPLEMENTED | No broker, producer, consumer, or schema | Requires outbox and ownership design first |
 | Events | Transactional outbox and consumer deduplication | NOT_IMPLEMENTED | No schema/code | Implement with PostgreSQL transactions before event publication |
 | AI | OpenAI/Spring AI integration | NOT_IMPLEMENTED | No dependency/code | Must remain disabled without key |
 | AI | RAG/pgvector/citations/tool calling | NOT_IMPLEMENTED | No schema/code | Requires access-controlled documents and evaluation |
-| Frontend | Login/dashboard/filter/order flow | IMPLEMENTED_AND_VERIFIED | React tests: 12 passed, 100% lines on 2026-10-17 | Only overview is fully interactive |
-| Frontend | Catalog/inventory/order-management pages | PARTIALLY_IMPLEMENTED | APIs exist; sidebar labels exist | Dedicated pages and service layer are missing |
-| Frontend | Forecast/pricing/assistant/admin pages | NOT_IMPLEMENTED | No routes/components | Implement only against real APIs |
-| Local dev | Docker Compose app/DynamoDB/ML stack | IMPLEMENTED_AND_VERIFIED | `docker-compose.yml`; 2026-10-16 isolated run | Does not include enterprise roadmap services |
+| Frontend | Login/dashboard/filter/order flow | IMPLEMENTED_AND_VERIFIED | React tests and 4 Playwright workflows on 2026-10-17 | Dashboard commerce KPIs remain deterministic rather than persisted aggregations |
+| Frontend | Catalog/inventory/order-management pages | IMPLEMENTED_AND_VERIFIED | `Pages.tsx`; product CRUD, inventory movement, order create/lookup component tests | Order list/status/cancel APIs do not exist |
+| Frontend | Forecast/pricing/live-traffic pages | IMPLEMENTED_AND_VERIFIED | `Pages.tsx`; API-backed tests; live traffic polling against PostgreSQL metrics | Uses five-second polling, not SSE/WebSocket |
+| Frontend | Customer/notification/settings/administration/AI pages | NOT_IMPLEMENTED | No supporting backend workflows | Do not present placeholder routes as completed features |
+| Simulator | Authenticated weighted event generation | IMPLEMENTED_AND_VERIFIED | 4 pytest tests; Compose runtime persisted 58 events; normal orders used for purchase attempts | No durable UI start/pause/resume/reset control plane |
+| Local dev | Docker Compose app/DynamoDB/PostgreSQL/ML stack | IMPLEMENTED_AND_VERIFIED | Five core services healthy; simulator starts only with explicit profile | Traffic simulator was stopped after runtime verification |
 | Observability | Actuator health/metrics and structured logs | PARTIALLY_IMPLEMENTED | `application.yml`, correlation logging | No OpenTelemetry, Prometheus config, Grafana, or distributed tracing |
 | Reliability | Circuit breakers/timeouts/retries | PARTIALLY_IMPLEMENTED | Lambda has HTTP timeout and EventBridge retry config | No Resilience4j protection for service calls |
 | Testing | Java/Python/React/E2E/k6/Terraform suites | IMPLEMENTED_AND_VERIFIED | `docs/TEST_REPORT.md`; 2026-10-17 baseline reruns noted below | New changes require regression verification |
@@ -65,13 +67,14 @@ The current application is a React SPA backed by a Java 21/Spring Boot modular m
 
 | Check | Result | Notes |
 |---|---|---|
-| Java unit/API tests | PASS: 43 passed, 0 failed, 0 skipped | Maven container, Java 21; includes two new structured-error tests |
-| Java DynamoDB Testcontainers | PASS: 8 passed, 0 failed, 0 skipped | Maven container with Docker Desktop host override and Ryuk disabled for this constrained nested run |
+| Java unit/API tests | PASS: 46 passed, 0 failed, 0 skipped | Java 21 Maven container; includes 3 Flyway/traffic MockMvc tests |
+| Java DynamoDB Testcontainers | BLOCKED in latest container rerun: 8 skipped | Container lacked Docker socket; previous verified 8/8 evidence remains in test report |
 | Python pytest | PASS: 21 passed | 91% line coverage; local virtualenv uses Python 3.9, while container/CI target remains 3.12 |
-| React unit tests | PASS: 12 passed | 100% line coverage, 81.63% branch coverage |
+| Traffic generator pytest | PASS: 4 passed | deterministic sequence, valid event, failed-order mapping, rate limit |
+| React unit tests | PASS: 19 passed | 95.34% line coverage, 71.14% branch coverage |
 | React production build | PASS | Vite and the multi-stage frontend Docker build generated the production bundle |
 | Playwright E2E | PASS: 4 passed | Official Playwright 1.64.1 Linux container against the healthy Compose stack |
-| Local Compose integration | PASS | Backend, frontend, ML, and DynamoDB Local images built and all services became healthy |
+| Local Compose integration | PASS | Frontend, backend, ML, DynamoDB Local, and PostgreSQL healthy; simulator persisted records through the API |
 | Terraform | PASS | `fmt -check`, offline init, and validate through Terraform 1.13.4 container |
 
 ## Next coherent implementation sequence

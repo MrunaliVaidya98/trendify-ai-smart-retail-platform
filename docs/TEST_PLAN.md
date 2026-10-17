@@ -84,6 +84,13 @@ Status values are evidence-based: **PASS** means the referenced test executed su
 | UI-003 | Empty products | Header/table render without fabricated rows | `App.test.tsx` | PASS |
 | UI-004 | Dashboard/product error | Actionable error state renders and retry invokes load | `App.test.tsx` | PASS |
 | UI-005 | Expired session | 401 clears JWT and navigates to login | `App.test.tsx` | PASS |
+| UI-006 | Feature routes and forms | Product, inventory, order, forecast, pricing, and live-traffic components call real APIs and render outcomes | `Pages.test.tsx` | PASS |
+| TRAFFIC-001 | Flyway migration | Traffic schema migrates in H2 PostgreSQL mode and PostgreSQL 17 | `TrafficEventControllerTest`; live Compose schema query | PASS |
+| TRAFFIC-002 | Authenticated/idempotent ingestion | Correct key and JWT persist once; duplicate ID reports `created=false`; wrong key returns 403 | `TrafficEventControllerTest`; live API verification | PASS |
+| TRAFFIC-003 | Persisted aggregation | Store/window-scoped funnel counts come from stored events | `TrafficEventControllerTest.persistedMetricsAreAggregatedByStore` | PASS |
+| SIM-001 | Deterministic weighted generator | Seeded choices repeat; event shape/source label is valid; rate is bounded | `traffic-generator/tests/test_generator.py` | PASS |
+| SIM-002 | Purchase invariant | Completed purchase uses order API; rejected order becomes failed event | `test_failed_purchase_is_recorded_without_bypassing_order_rules`; live simulator | PASS |
+| SIM-003 | Durable simulator controls | Start/pause/resume/stop/reset state is backend-persisted and safe across restart | Not implemented | BLOCKED |
 | E2E-001 | Login-to-dashboard | Demo login renders live KPI/product data | `e2e/retail-workflow.spec.ts` | PASS |
 | E2E-002 | Inventory workflow | API-assisted stock-in changes displayed inventory and is cleaned up | `e2e/retail-workflow.spec.ts` | PASS |
 | E2E-003 | Complete order workflow | Create order through UI, observe stock decrement, reject stale replay, and restore fixture stock | `retail-workflow.spec.ts` | PASS |
@@ -93,4 +100,4 @@ Status values are evidence-based: **PASS** means the referenced test executed su
 
 ## Coverage policy
 
-JaCoCo, Python `coverage.py`, and React/V8 coverage artifacts are generated in CI. The 2026-10-17 run measured Java lines at 90.36%, Python lines at 91%, and React lines at 100%. Branch coverage is lower (Java 73.15%, React 81.63%) and is reported rather than hidden. Cloud deployment tests are excluded from local CI and require an explicitly provisioned sandbox account.
+JaCoCo, Python `coverage.py`, and React/V8 coverage artifacts are generated in CI. The latest 2026-10-17 phase measured Java lines at 90.87%, prior Python lines at 91%, and React lines at 95.34%. React branch coverage was 71.14% and is reported rather than hidden. Cloud deployment tests are excluded from local CI and require an explicitly provisioned sandbox account.

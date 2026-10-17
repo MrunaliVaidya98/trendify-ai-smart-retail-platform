@@ -6,7 +6,7 @@ import {App,Dashboard,Login,type DashboardData,type Product} from './App';
 import {api,ApiError} from './api';
 
 const dashboard:DashboardData={revenue:1000,unitsSold:80,averageOrderValue:25,grossMargin:580,revenueTrend:[{date:'2026-10-16',revenue:1000,units:80}],stockoutRisks:1,pendingRecommendations:2,storeId:'SEA-01'};
-const product:Product={id:'p1',sku:'SKU-1',name:'Fixture Product',category:'Tests',price:12.5,stockLevel:2,reorderThreshold:3,version:1};
+const product:Product={id:'p1',sku:'SKU-1',name:'Fixture Product',category:'Tests',supplier:'Fixture Supplier',price:12.5,cost:5,stockLevel:2,reorderThreshold:3,leadTimeDays:7,version:1};
 const ok=(body:unknown)=>Promise.resolve(new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}}));
 const fail=(status:number)=>Promise.resolve(new Response('{}',{status,statusText:'error'}));
 const mockFetch=(...responses:Promise<Response>[])=>vi.spyOn(globalThis,'fetch').mockImplementation(()=>responses.shift()!);

@@ -2,7 +2,31 @@
 
 Verified on 2026-10-17 against the implemented repository and a freshly built, isolated Docker Compose stack. PASS is used only where the referenced test or validation command completed successfully.
 
-## Final execution summary
+## 2026-10-17 database/traffic phase
+
+The latest phase executed **94 tests successfully, 0 test failures, and 8 environment-skipped Testcontainers tests**:
+
+| Suite | Passed | Failed | Skipped |
+|---|---:|---:|---:|
+| Spring/JUnit/MockMvc (including Flyway/traffic) | 46 | 0 | 0 |
+| DynamoDB Testcontainers in latest Maven container | 0 | 0 | 8 |
+| FastAPI/ML/Lambda pytest in Python 3.12 container | 21 | 0 | 0 |
+| Traffic generator pytest | 4 | 0 | 0 |
+| React/Vitest | 19 | 0 | 0 |
+| Playwright/Chromium | 4 | 0 | 0 |
+| **Latest-phase total** | **94** | **0** | **8** |
+
+The 8 integration tests were skipped because that particular Maven container was not given a Docker socket. They passed in the previously recorded isolated Testcontainers run and were not relabelled as newly executed. JaCoCo was regenerated from the latest Java unit/API execution: **90.87% lines (189/208)**. React measured **95.34% lines**, **71.14% branches**, **80.33% statements**, and **71.59% functions**.
+
+Runtime integration evidence: all five core Compose services became healthy; Flyway V1 applied to PostgreSQL 17; authenticated ingestion returned `created=true`, duplicate delivery returned `created=false`; and the opt-in simulator persisted 58 events before it was stopped. A fresh 10-second k6 smoke run completed 50 iterations with **152/152 checks**, 0% failures, dashboard p95 **66.70 ms**, and HTTP p95 **67.66 ms** against 500 ms thresholds. Host Python lacked FastAPI, so the authoritative 21-test run used the project's Python 3.12 container. Playwright initially lacked a host browser and was rerun successfully in the matching official 1.64.1 image.
+
+The updated test plan now contains **55 PASS, 0 FAIL, 0 SKIPPED, and 2 BLOCKED** rows. The blocked rows are durable simulator controls and live AWS verification. The broad master-prompt acceptance criteria are **not all complete**: customer, notifications, settings, administration, PostgreSQL commerce tables, SSE/WebSockets, and database-derived commerce KPIs remain partial or unimplemented.
+
+### CI reliability correction
+
+After a GitHub-hosted run observed transient Nginx `502` responses, both E2E and performance jobs gained an authenticated readiness probe through the same Nginx route used by the tests. Compose now has an explicit 180-second wait timeout, and readiness failure emits service status and bounded logs. The Playwright workflow passed 12/12 executions in a three-repeat, one-worker container run after this change. The Trivy action reference was corrected from the unresolved `0.33.1` reference to the published `v0.36.0` tag. GitHub-hosted verification of the modified workflow remains pending until the next pushed run.
+
+## Previous full requirement baseline
 
 | Suite | Type | Passed | Failed | Skipped | Evidence |
 |---|---|---:|---:|---:|---|

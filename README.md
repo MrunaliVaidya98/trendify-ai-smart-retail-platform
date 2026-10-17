@@ -4,7 +4,7 @@
 
 Trendify is a full-stack engineering portfolio project for multi-store retail operations. It combines a React dashboard, a Spring Boot system-of-record API, DynamoDB concurrency controls, a FastAPI/scikit-learn forecasting service, an idempotent AWS Lambda batch workflow, and Terraform infrastructure. The repository runs locally without an AWS account.
 
-> Verification snapshot (2026-10-17): **88 automated tests passed, 0 failed, 0 skipped; 50/51 documented requirements passed; live AWS sandbox verification remains blocked.** Every metric below links to the executed [test report](docs/TEST_REPORT.md), with individual scenarios in the [test plan](docs/TEST_PLAN.md).
+> Latest verification snapshot (2026-10-17): **94 tests passed, 0 failed, 8 environment-skipped Testcontainers tests; 55 PASS and 2 BLOCKED test-plan rows.** The broader enterprise scope is explicitly partial, and live AWS sandbox verification remains blocked. See the [test report](docs/TEST_REPORT.md).
 
 ![Authenticated Trendify operations dashboard](docs/images/dashboard.jpg)
 
@@ -37,6 +37,8 @@ flowchart LR
   U[Retail operator] --> SPA[React 19 SPA]
   SPA -->|Bearer JWT / REST| API[Spring Boot 3.5 API<br/>Java 21]
   API -->|conditional + transactional writes| DDB[(DynamoDB)]
+  API -->|Flyway + traffic events| PG[(PostgreSQL)]
+  SIM[Python traffic generator] -->|authenticated REST| API
   API -->|forecast HTTP| ML[FastAPI<br/>scikit-learn]
   EB[EventBridge daily rule] --> L[Python 3.12 Lambda]
   L -->|POST /train| ML
@@ -53,7 +55,7 @@ The API is a modular monolith: catalog, inventory, orders, analytics, and recomm
 |---|---|
 | Web | React 19, TypeScript 6, Vite 7, React Router, Nginx |
 | API | Java 21, Spring Boot 3.5, Spring Security, Bean Validation, springdoc OpenAPI |
-| Data | DynamoDB single-table model, AWS SDK v2, DynamoDB Local |
+| Data | DynamoDB single-table model, PostgreSQL 17, Flyway, AWS SDK v2, DynamoDB Local |
 | ML | Python 3.12, FastAPI, pandas, NumPy, scikit-learn, joblib |
 | Cloud/IaC | Lambda, EventBridge, S3, CloudWatch, IAM, Terraform |
 | Quality | JUnit 5, Mockito, MockMvc, Testcontainers, pytest, Vitest, Playwright, k6, JaCoCo |
@@ -96,7 +98,7 @@ Demo users all use `Trendify123!` and exist only for deterministic local evaluat
 | Store manager | `portland@trendify.dev` | `PDX-01` |
 | Inventory analyst | `analyst@trendify.dev` | `SEA-01` |
 
-Stop with `docker compose down`. Use `docker compose down -v` only when you intentionally want to remove local DynamoDB/model volumes.
+Start the opt-in simulator with `docker compose --profile simulator up -d traffic-generator`; stop it with `docker compose --profile simulator stop traffic-generator`. Stop the core stack with `docker compose down`. Use `docker compose down -v` only when intentionally removing local PostgreSQL, DynamoDB, and model volumes.
 
 ### Installation verification
 
@@ -163,13 +165,13 @@ The values below are copied from the committed [test report](docs/TEST_REPORT.md
 
 | Evidence | Executed result |
 |---|---:|
-| Automated tests | **88 passed, 0 failed, 0 skipped** |
+| Latest-phase automated tests | **94 passed, 0 failed, 8 environment-skipped** |
 | Requirements | **50 PASS, 0 FAIL, 0 SKIPPED, 1 BLOCKED** |
-| Java line / branch coverage | **90.36% / 73.15%** |
+| Java line coverage | **90.87% (189/208)** |
 | Python line coverage | **91%** |
-| React line / branch coverage | **100% / 81.63%** |
+| React line / branch coverage | **95.34% / 71.14%** |
 | Playwright | **4 passed** |
-| k6 | **452/452 checks; dashboard p95 52.78 ms** (threshold 500 ms) |
+| k6 latest smoke | **152/152 checks; dashboard p95 66.70 ms** (threshold 500 ms) |
 | Terraform | **fmt, offline init, and validate passed** |
 
 Run the same layers:

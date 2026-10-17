@@ -38,6 +38,8 @@ jobs:
         working-directory: ml-service
       - run: pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-report=html -q
         working-directory: ml-service
+      - name: Test traffic generator
+        run: python -m pytest -q traffic-generator/tests
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -78,7 +80,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci && npx playwright install --with-deps chromium
         working-directory: frontend
-      - run: docker compose up -d --build --wait
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Wait for authenticated API through Nginx
+        run: bash scripts/wait-for-stack.sh
       - run: npx playwright test
         working-directory: frontend
       - if: always()
@@ -96,7 +100,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose up -d --build --wait
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Wait for authenticated API through Nginx
+        run: bash scripts/wait-for-stack.sh
       - run: >-
           docker run --rm --network host
           -v "$PWD/performance:/scripts"
@@ -123,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
